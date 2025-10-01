@@ -1,0 +1,35 @@
+# Node
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+.vercel/
+
+# Env files
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing/Reports
+coverage/
+test-results/
+playwright-report/
+
+# IDE
+.idea/
+.vscode/
+
