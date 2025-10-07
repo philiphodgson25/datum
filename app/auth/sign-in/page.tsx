@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '../../../lib/supabase.client';
 
 export default function SignInPage() {
@@ -8,6 +9,20 @@ export default function SignInPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [authed, setAuthed] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const check = async () => {
+      const supabase = createBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setAuthed(true);
+        router.replace('/');
+      }
+    };
+    check();
+  }, [router]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,9 +47,11 @@ export default function SignInPage() {
     }
   }
 
+  if (authed) return null;
+
   return (
     <main style={{ padding: 24 }}>
-      <h1>Sign in</h1>
+      <h1>Enter your address:</h1>
       <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12, maxWidth: 360 }}>
         <label>
           Email
