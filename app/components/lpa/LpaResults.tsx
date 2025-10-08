@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default function LpaResults({ address, onUseCurrentAddress, showTestButtons = false }: Props) {
-  const { lookupByAddress, lookupByPoint, loading, error, data, stats } = useLpaLookup();
+  const { lookupByAddress, lookupByPoint, loading, error, data, stats, statsLoading, statsError } = useLpaLookup();
 
   const status = useMemo(() => {
     if (loading) return 'loading';
@@ -20,8 +20,10 @@ export default function LpaResults({ address, onUseCurrentAddress, showTestButto
     return 'success';
   }, [loading, error, data]);
 
-  const activeText = data?.lpa?.is_active ? 'Active' : 'Historical';
-  const activeClass = data?.lpa?.is_active ? 'text-green-700' : 'text-yellow-700';
+  const activeText =
+    data?.lpa?.is_active === true ? 'Active' : data?.lpa?.is_active === false ? 'Historical' : 'Unknown';
+  const activeClass =
+    data?.lpa?.is_active === true ? 'text-green-700' : data?.lpa?.is_active === false ? 'text-yellow-700' : 'text-gray-600';
 
   return (
     <div className="mt-4">
@@ -99,6 +101,15 @@ export default function LpaResults({ address, onUseCurrentAddress, showTestButto
       </div>
 
       {/* Stats grid */}
+      <div className="mt-3">
+        {statsLoading ? (
+          <div className="text-xs text-gray-600">Loading LPA stats…</div>
+        ) : null}
+        {statsError ? (
+          <div className="rounded border border-yellow-200 bg-yellow-50 p-2 text-xs text-yellow-800">{statsError}</div>
+        ) : null}
+      </div>
+
       {stats ? (
         <div className="mt-3 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
           <div className="rounded border border-gray-200 bg-white p-2">
@@ -141,5 +152,4 @@ export default function LpaResults({ address, onUseCurrentAddress, showTestButto
     </div>
   );
 }
-
 

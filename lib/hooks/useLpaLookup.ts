@@ -1,20 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-export type Coordinates = { lat: number; lng: number };
-
-export type LPA = {
-  id: string;
-  entity: string;
-  reference: string;
-  name: string;
-  is_active: boolean;
-  centroid: any;
-  boundary: any;
-};
-
-type LookupData = { coordinates?: Coordinates; lpa?: LPA } | null;
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { z } from 'zod';
+import {
+  coordinatesSchema,
+  lpaByPointRequestSchema,
+  lpaLookupRequestSchema,
+  lpaLookupResponseSchema,
+  type LpaLookupResponse
+} from '../schemas/lpa';
 
 type Stats = {
   total_lpas: number;
@@ -27,9 +21,11 @@ type UseLpaLookup = {
   lookupByAddress: (address: string) => Promise<void>;
   lookupByPoint: (lat: number, lng: number) => Promise<void>;
   stats: Stats;
+  statsLoading: boolean;
+  statsError: string | null;
   loading: boolean;
   error: string | null;
-  data: LookupData;
+  data: LpaLookupResponse | null;
   clear: () => void;
   debounce: <T extends (...args: any[]) => void>(fn: T, wait?: number) => T;
 };
@@ -49,13 +45,41 @@ async function fetchJson(url: string, init?: RequestInit) {
   return json ?? {};
 }
 
+async function fetchWithSchema<T>(schema: z.ZodSchema<T>, url: string, init: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  let payload: unknown = null;
+  try {
+    payload = await res.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok) {
+    const message =
+      (payload && typeof payload === 'object' && payload !== null && 'error' in payload && typeof (payload as any).error === 'string'
+        ? (payload as any).error
+        : null) || `Request failed with ${res.status}`;
+    throw new Error(message);
+  }
+
+  try {
+    return schema.parse(payload);
+  } catch (err) {
+    throw new Error('Invalid response payload');
+  }
+}
+
 export function useLpaLookup(): UseLpaLookup {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<LookupData>(null);
+  const [data, setData] = useState<LpaLookupResponse | null>(null);
   const [stats, setStats] = useState<Stats>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
     try {
       const json = await fetchJson('/api/lpa/stats', { method: 'GET', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
       setStats({
@@ -64,10 +88,13 @@ export function useLpaLookup(): UseLpaLookup {
         historical_lpas: Number(json.historical_lpas ?? 0),
         with_boundaries: Number(json.with_boundaries ?? 0)
       });
-    } catch (err) {
-      // keep stats null on error; do not surface as UI error
+    } catch (err: any) {
+      setStatsError(err?.message || 'Failed to load stats');
+      setStats(null);
       // eslint-disable-next-line no-console
       console.warn('Failed to fetch LPA stats', err);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -81,19 +108,27 @@ export function useLpaLookup(): UseLpaLookup {
       setData(null);
       return;
     }
+    const validation = lpaLookupRequestSchema.safeParse({ address });
+    if (!validation.success) {
+      setError(validation.error.issues[0]?.message ?? 'Invalid address');
+      setData(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const json = await fetchJson('/api/lpa/lookup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-        credentials: 'include'
-      });
-      setData({
-        coordinates: json.coordinates ?? undefined,
-        lpa: json.lpa ?? undefined
-      });
+      const result = await fetchWithSchema(
+        lpaLookupResponseSchema,
+        '/api/lpa/lookup',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(validation.data),
+          credentials: 'include'
+        }
+      );
+      setData(result);
     } catch (err) {
       setError((err as Error).message || 'Lookup failed');
       setData(null);
@@ -103,16 +138,34 @@ export function useLpaLookup(): UseLpaLookup {
   }, []);
 
   const lookupByPoint = useCallback(async (lat: number, lng: number) => {
+    const validation = lpaByPointRequestSchema.safeParse({ lat, lng });
+    if (!validation.success) {
+      setError(validation.error.issues[0]?.message ?? 'Invalid coordinates');
+      setData(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const json = await fetchJson('/api/lpa/by-point', {
+      const result = await fetchWithSchema(
+        lpaLookupResponseSchema,
+        '/api/lpa/by-point',
+        {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lng }),
+        body: JSON.stringify(validation.data),
         credentials: 'include'
+        }
+      );
+      setData({
+        ...result,
+        coordinates: coordinatesSchema.parse({
+          ...result.coordinates,
+          lat,
+          lng
+        })
       });
-      setData({ coordinates: { lat, lng }, lpa: json.lpa ?? undefined });
     } catch (err) {
       setError((err as Error).message || 'Lookup failed');
       setData(null);
@@ -138,9 +191,8 @@ export function useLpaLookup(): UseLpaLookup {
   }, []);
 
   return useMemo(
-    () => ({ lookupByAddress, lookupByPoint, stats, loading, error, data, clear, debounce }),
-    [lookupByAddress, lookupByPoint, stats, loading, error, data, clear, debounce]
+    () => ({ lookupByAddress, lookupByPoint, stats, statsLoading, statsError, loading, error, data, clear, debounce }),
+    [lookupByAddress, lookupByPoint, stats, statsLoading, statsError, loading, error, data, clear, debounce]
   );
 }
-
 
