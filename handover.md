@@ -95,3 +95,5 @@ Upcoming Task 4 introduces a dataset registry to make adding new collections fas
 
 Keep this document updated after each major task so new contributors can follow the latest process.
 
+See also: `supabase-overview.md` for Supabase CLI and MCP usage.
+
