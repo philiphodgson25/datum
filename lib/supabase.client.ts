@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
+import { publicEnv } from './env.public';
 
 export function createBrowserClient() {
-  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL as string) || '';
-  const key = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string) || '';
-  return createClient(url, key);
+  return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
-

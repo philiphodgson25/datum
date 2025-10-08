@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase/server';
 import { lpaLookupRequestSchema, lpaLookupResponseSchema } from '../../../../lib/schemas/lpa';
 import { LpaLookupError, performLpaLookup } from '../../../../lib/services/lpa-lookup';
+import { env, publicEnv } from '../../../../lib/env';
 
 const noCacheHeaders = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -21,8 +22,8 @@ export async function POST(req: NextRequest) {
     const supabase = supabaseServer();
     const result = await performLpaLookup(parsedBody.data.address, {
       supabase,
-      nominatimUserAgent: process.env.NOMINATIM_USER_AGENT,
-      referer: process.env.NEXT_PUBLIC_APP_URL
+      nominatimUserAgent: env.NOMINATIM_USER_AGENT,
+      referer: publicEnv.NEXT_PUBLIC_APP_URL
     });
 
     const responseBody = lpaLookupResponseSchema.parse(result);
@@ -35,4 +36,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
   }
 }
-

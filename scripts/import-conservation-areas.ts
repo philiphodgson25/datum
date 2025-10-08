@@ -1,6 +1,8 @@
+import './utils/loadEnv';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { env } from '../lib/env';
 
 type Feature = {
   id?: string;
@@ -8,8 +10,6 @@ type Feature = {
   geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: any };
 };
 
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const FILE = process.env.CA_FILE || 'data/Conservation_Areas_-5052013531654473760.geojson';
 
 const SOURCE = 'historic-england';
@@ -49,7 +49,7 @@ async function upsertWithRetry(
 }
 
 (async () => {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   const text = fs.readFileSync(path.resolve(FILE), 'utf8');
   const geo = JSON.parse(text);
 

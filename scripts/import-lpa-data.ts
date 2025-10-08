@@ -1,24 +1,17 @@
 // scripts/import-lpa-data.ts
 // Import Local Planning Authority data from CSV + GeoJSON into Supabase
 
-import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' }); // explicitly load .env.local
-
+import './utils/loadEnv';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { parse } from 'csv-parse/sync';
 import * as path from 'path';
+import { env } from '../lib/env';
 
 // ----------------------
 // ✅ Initialise Supabase
 // ----------------------
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!SUPABASE_URL) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL (check .env.local)');
-if (!SERVICE_ROLE) throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY (check .env.local)');
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
