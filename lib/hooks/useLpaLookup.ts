@@ -18,8 +18,8 @@ type Stats = {
 } | null;
 
 type UseLpaLookup = {
-  lookupByAddress: (address: string) => Promise<void>;
-  lookupByPoint: (lat: number, lng: number) => Promise<void>;
+  lookupByAddress: (_address: string) => Promise<void>;
+  lookupByPoint: (_lat: number, _lng: number) => Promise<void>;
   stats: Stats;
   statsLoading: boolean;
   statsError: string | null;
@@ -27,10 +27,12 @@ type UseLpaLookup = {
   error: string | null;
   data: LpaLookupResponse | null;
   clear: () => void;
-  debounce: <T extends (...args: any[]) => void>(fn: T, wait?: number) => T;
+  debounce: <T extends (..._args: any[]) => void>(_fn: T, _wait?: number) => T;
 };
 
-async function fetchJson(url: string, init?: RequestInit) {
+type FetchRequestInit = globalThis.RequestInit;
+
+async function fetchJson(url: string, init?: FetchRequestInit) {
   const res = await fetch(url, init);
   let json: any = null;
   try {
@@ -45,7 +47,7 @@ async function fetchJson(url: string, init?: RequestInit) {
   return json ?? {};
 }
 
-async function fetchWithSchema<T>(schema: z.ZodSchema<T>, url: string, init: RequestInit): Promise<T> {
+async function fetchWithSchema<T>(schema: z.ZodSchema<T>, url: string, init: FetchRequestInit): Promise<T> {
   const res = await fetch(url, init);
   let payload: unknown = null;
   try {
@@ -179,12 +181,13 @@ export function useLpaLookup(): UseLpaLookup {
     setData(null);
   }, []);
 
-  const debounce = useCallback(<T extends (...args: any[]) => void>(fn: T, wait = 300) => {
+  const debounce = useCallback(<T extends (..._callArgs: any[]) => void>(fn: T, wait = 300) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const debounced = ((...args: any[]) => {
+    const debounced = ((..._callArgs: Parameters<T>) => {
+      const callArgs = _callArgs;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        fn(...args);
+        fn(...callArgs);
       }, wait);
     }) as T;
     return debounced;
@@ -195,4 +198,3 @@ export function useLpaLookup(): UseLpaLookup {
     [lookupByAddress, lookupByPoint, stats, statsLoading, statsError, loading, error, data, clear, debounce]
   );
 }
-

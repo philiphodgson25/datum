@@ -1,10 +1,14 @@
 import { type SupabaseClient } from '@supabase/supabase-js';
+import postgres from 'postgres';
 import { lpaLookupResponseSchema, lpaRecordSchema, type LpaLookupResponse } from '../schemas/lpa';
 
 export class LpaLookupError extends Error {
-  constructor(message: string, public status: number) {
+  public status: number;
+
+  constructor(message: string, status: number) {
     super(message);
     this.name = 'LpaLookupError';
+    this.status = status;
   }
 }
 
@@ -17,13 +21,18 @@ type LookupDeps = {
   fetchImpl?: FetchImpl;
   nominatimUserAgent?: string;
   referer?: string;
+  databaseUrl?: string;
 };
 
 const DEFAULT_HEADERS = {
   Accept: 'application/json'
 } as const;
 
-async function fetchJSON<T>(input: RequestInfo | URL, init: RequestInit, fetchImpl: FetchImpl): Promise<T> {
+type FetchRequestInfo = globalThis.RequestInfo | URL;
+type FetchRequestInit = globalThis.RequestInit;
+type FetchHeadersInit = globalThis.HeadersInit;
+
+async function fetchJSON<T>(input: FetchRequestInfo, init: FetchRequestInit, fetchImpl: FetchImpl): Promise<T> {
   const response = await fetchImpl(input, init);
   const contentType = response.headers.get('content-type') ?? '';
 
@@ -62,7 +71,7 @@ async function geocodeAddress(address: string, deps: LookupDeps): Promise<{ lat:
     countrycodes: 'gb'
   });
 
-  const headers: HeadersInit = {
+  const headers: FetchHeadersInit = {
     ...DEFAULT_HEADERS,
     'User-Agent': deps.nominatimUserAgent ?? 'LatentMade-PlanningApp/1.0 (support@latentmade.com)'
   };
@@ -102,11 +111,28 @@ export async function lookupLpaByPoint(
 ): Promise<LpaLookupResponse> {
   const { data, error } = await deps.supabase.rpc('get_lpa_by_point', { lat, lng });
   if (error) {
+    const fallback = deps.databaseUrl ? await lookupLpaByPointViaSql(lat, lng, deps.databaseUrl) : undefined;
+    if (fallback !== undefined) {
+      return lpaLookupResponseSchema.parse({
+        coordinates: { lat, lng },
+        lpa: fallback
+      });
+    }
     throw new LpaLookupError('Database query failed', 500);
   }
 
   const record = Array.isArray(data) ? data[0] ?? null : data ?? null;
   const parsedRecord = record ? lpaRecordSchema.parse(record) : null;
+
+  if (!parsedRecord && deps.databaseUrl) {
+    const fallback = await lookupLpaByPointViaSql(lat, lng, deps.databaseUrl);
+    if (fallback !== undefined) {
+      return lpaLookupResponseSchema.parse({
+        coordinates: { lat, lng },
+        lpa: fallback
+      });
+    }
+  }
 
   return lpaLookupResponseSchema.parse({
     coordinates: { lat, lng },
@@ -124,4 +150,67 @@ export async function performLpaLookup(address: string, deps: LookupDeps): Promi
       display_name: coords.display_name
     }
   });
+}
+
+async function lookupLpaByPointViaSql(lat: number, lng: number, databaseUrl: string): Promise<ReturnType<typeof lpaRecordSchema.parse> | null> {
+  if (!databaseUrl) {
+    return null;
+  }
+
+  const sql = postgres(databaseUrl, {
+    ssl: 'require',
+    prepare: false
+  });
+
+  try {
+    const appRows = await sql<Record<string, any>>`
+      select
+        id::text as id,
+        entity,
+        reference,
+        name,
+        is_active,
+        ST_AsGeoJSON(centroid)::json as centroid,
+        ST_AsGeoJSON(boundary)::json as boundary
+      from app.local_planning_authority_public
+      where boundary is not null
+        and st_intersects(
+          boundary,
+          ST_SetSRID(ST_Point(${lng}, ${lat}), 4326)
+        )
+      order by valid_to is null desc, valid_to asc nulls first
+      limit 1
+    `;
+
+    if (appRows.length > 0) {
+      return lpaRecordSchema.parse(appRows[0]);
+    }
+
+    const coreRows = await sql<Record<string, any>>`
+      select
+        id::text as id,
+        entity,
+        reference,
+        name,
+        is_active,
+        ST_AsGeoJSON(centroid)::json as centroid,
+        ST_AsGeoJSON(boundary)::json as boundary
+      from core.local_planning_authority_core
+      where boundary is not null
+        and st_intersects(
+          boundary,
+          ST_SetSRID(ST_Point(${lng}, ${lat}), 4326)
+        )
+      order by valid_to is null desc, valid_to asc nulls first
+      limit 1
+    `;
+
+    if (coreRows.length > 0) {
+      return lpaRecordSchema.parse(coreRows[0]);
+    }
+
+    return null;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
 }

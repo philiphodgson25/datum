@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import './globals.css';
 import Link from 'next/link';
-import { getCurrentUser } from '../lib/auth';
 import { AuthLink } from './components/AuthLink';
 
 export const metadata = {
@@ -10,7 +9,6 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const user = await getCurrentUser();
   return (
     <html lang="en">
       <head>

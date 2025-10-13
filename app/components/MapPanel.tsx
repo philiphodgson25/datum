@@ -2,15 +2,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, GeoJSON } from 'react-leaflet';
-import type { Feature, FeatureCollection, Geometry } from 'geojson';
+import type { Feature, FeatureCollection } from 'geojson';
 import L from 'leaflet';
 
 export interface MapPanelProps {
   boundaryGeoJSON?: Feature | FeatureCollection | null;
-  lpaName?: string | null;
 }
 
-export default function MapPanel({ boundaryGeoJSON, lpaName }: MapPanelProps) {
+export default function MapPanel({ boundaryGeoJSON }: MapPanelProps) {
   const [showLpa, setShowLpa] = useState(true);
   const [panelOpen, setPanelOpen] = useState(true);
   const geoJsonRef = useRef<L.GeoJSON | null>(null);
@@ -97,5 +96,4 @@ export default function MapPanel({ boundaryGeoJSON, lpaName }: MapPanelProps) {
     </div>
   );
 }
-
 

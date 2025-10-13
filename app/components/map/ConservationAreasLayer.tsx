@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { GeoJSON, useMap } from 'react-leaflet';
 import type { FeatureCollection } from 'geojson';
+import L from 'leaflet';
 
 type Props = {
   data: FeatureCollection | null;
@@ -48,5 +49,4 @@ export default function ConservationAreasLayer({ data }: Props) {
     />
   );
 }
-
 

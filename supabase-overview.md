@@ -82,6 +82,10 @@ ETL pattern
 
 ⸻
 
+Datasets follow a strict naming convention across schemas: _raw for raw source imports in stg, _core for cleaned canonical tables in core, and _public for frontend-facing views in app.
+
+⸻
+
 🌐 Connectivity (IPv4/IPv6) — Important
 	•	Supabase Direct connection hosts (db.<project_ref>.supabase.co:5432) are IPv6 by default.
 	•	On IPv4‑only networks/environments, use the Pooler hosts (Session or Transaction):

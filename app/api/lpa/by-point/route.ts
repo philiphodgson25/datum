@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '../../../../lib/supabase/server';
 import { lpaByPointRequestSchema, lpaLookupResponseSchema } from '../../../../lib/schemas/lpa';
 import { LpaLookupError, lookupLpaByPoint } from '../../../../lib/services/lpa-lookup';
+import { env } from '../../../../lib/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,10 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = supabaseServer();
-    const result = await lookupLpaByPoint(parsed.data.lat, parsed.data.lng, { supabase });
+    const result = await lookupLpaByPoint(parsed.data.lat, parsed.data.lng, {
+      supabase,
+      databaseUrl: env.DATABASE_URL
+    });
     const responseBody = lpaLookupResponseSchema.parse(result);
 
     return NextResponse.json(responseBody, { status: 200, headers: noCacheHeaders });
@@ -33,4 +37,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: noCacheHeaders });
   }
 }
-
